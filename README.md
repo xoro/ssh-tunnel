@@ -5,7 +5,7 @@ Copyright (c) 2025, Timo Pallach (timo@pallach.de).
 
 # Accessing Client Host Through SSH From Server
 
-This repository contains scripts and instructions for setting up SSH access from a server to a client machine, which is the reverse of the typical SSH connection direction.
+This project provides a complete solution for creating persistent reverse SSH tunnels, allowing servers to securely connect back to client machines that may be behind firewalls or NAT. The included scripts work across various Unix-like systems and handle automatic reconnection and service installation.
 
 ## Overview
 
@@ -15,7 +15,7 @@ Normally, SSH connections flow from client → server. However, there are scenar
 - Accessing home devices from work
 - Creating a backdoor for administrative access
 
-This repository provides a solution for establishing a persistent SSH tunnel that works across different system configurations.
+This project provides a solution for establishing a persistent SSH tunnel that works across different system configurations.
 
 ## Prerequisites
 
