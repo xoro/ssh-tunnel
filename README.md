@@ -104,10 +104,10 @@ sudo nano /etc/ssh-tunnel.conf
 
 # Restart the service to apply changes
 # For BSD systems:
-sudo /etc/rc.d/reverse_ssh restart
+sudo /etc/rc.d/ssh-tunnel restart
 
 # For SysV init systems:
-sudo /etc/init.d/reverse-ssh restart
+sudo /etc/init.d/ssh-tunnel restart
 ```
 
 ### Command Line Options
@@ -192,7 +192,7 @@ To modify the service configuration after installation:
 sudo nano /etc/ssh-tunnel.conf
 
 # Restart the service to apply changes
-sudo service reverse-ssh restart  # On most systems
+sudo service ssh-tunnel restart  # On most systems
 ```
 
 #### Connecting from the Server

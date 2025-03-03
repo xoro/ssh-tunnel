@@ -243,31 +243,31 @@ install_service() {
     case $INIT_SYSTEM in
         bsd)
             # Create rc script for BSD systems
-            cat > /etc/rc.d/reverse_ssh << EOF
+            cat > /etc/rc.d/ssh-tunnel << EOF
 #!/bin/sh
 #
-# PROVIDE: reverse_ssh
+# PROVIDE: ssh-tunnel
 # REQUIRE: NETWORKING
 # KEYWORD: shutdown
 
 . /etc/rc.subr
 
-name="reverse_ssh"
-rcvar="reverse_ssh_enable"
+name="ssh-tunnel"
+rcvar="ssh_tunnel_enable"
 command="/usr/bin/autossh"
 command_args="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=$SERVER_ALIVE_INTERVAL -o ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX -o ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 pidfile="/var/run/\${name}.pid"
 start_cmd="\${name}_start"
 stop_cmd="\${name}_stop"
-reverse_ssh_user="$LOCAL_USER"
+ssh_tunnel_user="$LOCAL_USER"
 
-reverse_ssh_start()
+ssh_tunnel_start()
 {
     echo "Starting \${name}."
-    /usr/sbin/daemon -u \${reverse_ssh_user} -p \${pidfile} -f \${command} \${command_args}
+    /usr/sbin/daemon -u \${ssh_tunnel_user} -p \${pidfile} -f \${command} \${command_args}
 }
 
-reverse_ssh_stop()
+ssh_tunnel_stop()
 {
     if [ -e \${pidfile} ]; then
         kill \`cat \${pidfile}\`
@@ -277,32 +277,32 @@ reverse_ssh_stop()
 load_rc_config \$name
 run_rc_command "\$1"
 EOF
-            chmod 755 /etc/rc.d/reverse_ssh
+            chmod 755 /etc/rc.d/ssh-tunnel
             
             # Enable the service
-            echo 'reverse_ssh_enable="YES"' >> /etc/rc.conf
+            echo 'ssh_tunnel_enable="YES"' >> /etc/rc.conf
             
             echo "Service installed. It will start on next boot."
-            echo "To start it now, run: /etc/rc.d/reverse_ssh start"
+            echo "To start it now, run: /etc/rc.d/ssh-tunnel start"
             ;;
             
         sysv)
             # Create init script for SysV init systems
-            cat > /etc/init.d/reverse-ssh << EOF
+            cat > /etc/init.d/ssh-tunnel << EOF
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          reverse-ssh
+# Provides:          ssh-tunnel
 # Required-Start:    \$network \$remote_fs \$syslog
 # Required-Stop:     \$network \$remote_fs \$syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Reverse SSH tunnel
+# Short-Description: SSH tunnel
 # Description:       Establishes a reverse SSH tunnel to a remote server
 ### END INIT INFO
 
 DAEMON=/usr/bin/autossh
 DAEMON_ARGS="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=$SERVER_ALIVE_INTERVAL -o ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX -o ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
-NAME=reverse-ssh
+NAME=ssh-tunnel
 PIDFILE=/var/run/\$NAME.pid
 USER=$LOCAL_USER
 HOME_DIR=\$(getent passwd \$USER | cut -d: -f6)
@@ -338,18 +338,18 @@ esac
 
 exit 0
 EOF
-            chmod 755 /etc/init.d/reverse-ssh
+            chmod 755 /etc/init.d/ssh-tunnel
             
             # Enable the service
             if command -v update-rc.d > /dev/null 2>&1; then
-                update-rc.d reverse-ssh defaults
+                update-rc.d ssh-tunnel defaults
             elif command -v chkconfig > /dev/null 2>&1; then
-                chkconfig --add reverse-ssh
-                chkconfig reverse-ssh on
+                chkconfig --add ssh-tunnel
+                chkconfig ssh-tunnel on
             fi
             
             echo "Service installed. It will start on next boot."
-            echo "To start it now, run: /etc/init.d/reverse-ssh start"
+            echo "To start it now, run: /etc/init.d/ssh-tunnel start"
             ;;
             
         *)
@@ -358,7 +358,7 @@ EOF
             
             # Create a wrapper script
             mkdir -p /usr/local/bin
-            cat > /usr/local/bin/reverse_ssh_wrapper.sh << EOF
+            cat > /usr/local/bin/ssh_tunnel_wrapper.sh << EOF
 #!/bin/sh
 # Load configuration
 if [ -f "/etc/ssh-tunnel.conf" ]; then
@@ -380,31 +380,31 @@ export AUTOSSH_GATETIME=0
 CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval $SERVER_ALIVE_INTERVAL\" -o \"ServerAliveCountMax $SERVER_ALIVE_COUNT_MAX\" -o \"ExitOnForwardFailure $EXIT_ON_FORWARD_FAILURE\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 pgrep -f "autossh.*$REMOTE_PORT:localhost:$LOCAL_PORT" > /dev/null || \$CMD
 EOF
-            chmod 755 /usr/local/bin/reverse_ssh_wrapper.sh
+            chmod 755 /usr/local/bin/ssh_tunnel_wrapper.sh
             
             # Add to crontab to run every 5 minutes, but for the specific user
             if [ -f /usr/bin/crontab ]; then
-                (su - $LOCAL_USER -c "crontab -l 2>/dev/null"; echo "*/5 * * * * /usr/local/bin/reverse_ssh_wrapper.sh") | su - $LOCAL_USER -c "crontab -"
+                (su - $LOCAL_USER -c "crontab -l 2>/dev/null"; echo "*/5 * * * * /usr/local/bin/ssh_tunnel_wrapper.sh") | su - $LOCAL_USER -c "crontab -"
                 echo "Crontab entry added for user '$LOCAL_USER'. The script will check every 5 minutes if the tunnel is running."
             else
                 echo "Warning: Could not add crontab entry. Please add it manually for user '$LOCAL_USER':"
-                echo "*/5 * * * * /usr/local/bin/reverse_ssh_wrapper.sh"
+                echo "*/5 * * * * /usr/local/bin/ssh_tunnel_wrapper.sh"
             fi
             
-            echo "To start it now, run as user '$LOCAL_USER': /usr/local/bin/reverse_ssh_wrapper.sh"
+            echo "To start it now, run as user '$LOCAL_USER': /usr/local/bin/ssh_tunnel_wrapper.sh"
             ;;
     esac
     
     # Start the service immediately
     case $INIT_SYSTEM in
         bsd)
-            /etc/rc.d/reverse_ssh start
+            /etc/rc.d/ssh-tunnel start
             ;;
         sysv)
-            /etc/init.d/reverse-ssh start
+            /etc/init.d/ssh-tunnel start
             ;;
         *)
-            su - $LOCAL_USER -c "/usr/local/bin/reverse_ssh_wrapper.sh"
+            su - $LOCAL_USER -c "/usr/local/bin/ssh_tunnel_wrapper.sh"
             ;;
     esac
     
