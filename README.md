@@ -21,7 +21,7 @@ This project provides a solution for establishing a persistent SSH tunnel that w
 
 - SSH server running on both the client and server machines
 - SSH client installed on both machines
-- For persistent connections: `autossh` package (recommended but not required)
+- For persistent service connections: `autossh` package (will be automatically installed when needed)
 
 ### Why SSH Server on the Client Machine?
 
@@ -44,7 +44,7 @@ Here's how the process works:
 
 ## SSH Tunnel Script
 
-The `ssh-tunnel.sh` script establishes a persistent reverse SSH tunnel from the client to the server. It works on various systems including those without systemd (BSD, older Linux, etc.).
+The `ssh-tunnel.sh` script establishes a reverse SSH tunnel from the client to the server. It works on various systems including those without systemd (BSD, older Linux, etc.).
 
 ### Command Line Options
 
@@ -63,13 +63,13 @@ The script supports the following command line options:
 
 ### Usage
 
-On the client machine:
+On the client machine for a temporary connection:
 
 ```bash
 ./ssh-tunnel.sh --server-ssh-user server_username --server-ssh-host server.example.com --server-ssh-forward-port 2222
 ```
 
-This creates a tunnel where port 2222 on the server forwards to port 22 (SSH) on the client.
+This creates a tunnel where port 2222 on the server forwards to port 22 (SSH) on the client. The script uses standard SSH for direct execution.
 
 Then, on the server:
 
@@ -87,10 +87,22 @@ sudo ./ssh-tunnel.sh --server-ssh-user server_username --server-ssh-host server.
 doas ./ssh-tunnel.sh --server-ssh-user server_username --server-ssh-host server.example.com --server-ssh-forward-port 2222 --install-local-service
 ```
 
+When installing as a service, the script will automatically check for and install `autossh` if needed.
+
 ### Features
 
-- Uses `autossh` to automatically reconnect if the connection drops
-- Automatically detects and installs as a service based on your init system:
+- **Compatibility-focused design**:
+  - Uses standard short options for SSH (`-N`, `-R`, `-p`, `-o`)
+  - Works across macOS, Linux, and BSD systems
+- **Efficient resource usage**:
+  - Only installs `autossh` when needed for service installation
+  - Uses regular SSH for direct execution
+- **Automatic reconnection** when installed as a service:
+  - Uses `autossh` to automatically reconnect if the connection drops
+- **Flexible deployment options**:
+  - Supports direct execution for testing
+  - Supports service installation for persistence
+- **Automatic service installation** based on your init system:
   - For BSD systems: Creates an rc.d script and adds it to rc.conf
   - For SysV init systems: Creates an init.d script and enables it
   - For unknown systems: Sets up a crontab entry to check and restart the tunnel
@@ -120,8 +132,8 @@ If you get "Connection refused" when trying to connect from the server:
 
 If the tunnel frequently disconnects:
 
-1. Make sure you're using the script with autossh
-2. Adjust the ServerAliveInterval and ServerAliveCountMax settings
+1. Make sure you're using the script with the `--install-local-service` option for persistent connections
+2. Adjust the ServerAliveInterval and ServerAliveCountMax settings if needed
 3. Check for network issues or firewalls that might be timing out the connection
 
 ### Service Installation Fails
