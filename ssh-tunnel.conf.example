@@ -1,0 +1,23 @@
+# SSH Tunnel Configuration File
+# This file contains configuration options for ssh-tunnel.sh
+# Lines starting with # are comments and will be ignored
+
+# Server SSH connection details
+SERVER_SSH_USER="server_username"
+SERVER_SSH_HOST="server.example.com"
+SERVER_SSH_PORT="22"
+
+# Port forwarding configuration
+LOCAL_SSH_PORT="22"          # SSH port on the client
+SERVER_SSH_FORWARD_PORT="2222"  # Port on the server that will forward to the client
+
+# Service installation options
+# Set to "true" to install as a service, "false" otherwise
+INSTALL_LOCAL_SERVICE="false"
+LOCAL_SERVICE_USER=""        # Leave empty to use current user
+
+# Advanced options
+MONITOR_PORT="20000"         # Port used by autossh to monitor the connection
+SERVER_ALIVE_INTERVAL="60"   # Keep-alive interval in seconds
+SERVER_ALIVE_COUNT_MAX="3"   # Number of keep-alive messages without response before disconnecting
+EXIT_ON_FORWARD_FAILURE="yes" # Whether to exit if port forwarding fails 

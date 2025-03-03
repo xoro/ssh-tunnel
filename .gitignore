@@ -1,21 +1,28 @@
-# OS generated files
+# Configuration files
+ssh-tunnel.conf
+/etc/ssh-tunnel.conf
+~/.config/ssh-tunnel/ssh-tunnel.conf
+
+# Temporary files
+*.swp
+*.swo
+*~
 .DS_Store
+
+# Log files
+*.log
+
+# User-specific files
+.idea/
+.vscode/
+
+# OS generated files
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Editor files
-*.swp
-*.swo
-*~
-.vscode/
-.idea/
-
-# Logs
-*.log
 
 # Backup files
 *.bak
