@@ -6,7 +6,7 @@
 # ssh-tunnel.sh - Script to establish a persistent reverse SSH tunnel
 # This works on systems without systemd (BSD, older Linux, etc.)
 
-# Configuration variables - MODIFY THESE
+# Default configuration variables
 SERVER_USER="server_username"
 SERVER_HOST="server.example.com"
 SERVER_PORT="22"
@@ -14,6 +14,43 @@ LOCAL_PORT="22"          # SSH port on the client
 REMOTE_PORT="2222"       # Port on the server that will forward to the client
 MONITOR_PORT="20000"     # Port used by autossh to monitor the connection
 LOCAL_USER="$(whoami)"   # Local user under which the service will run
+SERVER_ALIVE_INTERVAL="60"
+SERVER_ALIVE_COUNT_MAX="3"
+EXIT_ON_FORWARD_FAILURE="yes"
+INSTALL_SERVICE=false
+
+# Search for configuration file in the following order:
+# 1. Current directory: ./ssh-tunnel.conf
+# 2. System-wide: /etc/ssh-tunnel.conf
+# 3. User config: ~/.config/ssh-tunnel/ssh-tunnel.conf
+CONFIG_FILE=""
+if [ -f "./ssh-tunnel.conf" ]; then
+    CONFIG_FILE="./ssh-tunnel.conf"
+elif [ -f "/etc/ssh-tunnel.conf" ]; then
+    CONFIG_FILE="/etc/ssh-tunnel.conf"
+elif [ -f "$HOME/.config/ssh-tunnel/ssh-tunnel.conf" ]; then
+    CONFIG_FILE="$HOME/.config/ssh-tunnel/ssh-tunnel.conf"
+fi
+
+# Load configuration from file if found
+if [ -n "$CONFIG_FILE" ]; then
+    echo "Loading configuration from $CONFIG_FILE"
+    # Source the config file
+    . "$CONFIG_FILE"
+    
+    # Map config file variables to script variables
+    [ -n "$SERVER_SSH_USER" ] && SERVER_USER="$SERVER_SSH_USER"
+    [ -n "$SERVER_SSH_HOST" ] && SERVER_HOST="$SERVER_SSH_HOST"
+    [ -n "$SERVER_SSH_PORT" ] && SERVER_PORT="$SERVER_SSH_PORT"
+    [ -n "$LOCAL_SSH_PORT" ] && LOCAL_PORT="$LOCAL_SSH_PORT"
+    [ -n "$SERVER_SSH_FORWARD_PORT" ] && REMOTE_PORT="$SERVER_SSH_FORWARD_PORT"
+    [ -n "$LOCAL_SERVICE_USER" ] && LOCAL_USER="$LOCAL_SERVICE_USER"
+    
+    # Convert string boolean to shell boolean
+    if [ "$INSTALL_LOCAL_SERVICE" = "true" ]; then
+        INSTALL_SERVICE=true
+    fi
+fi
 
 # Display usage information
 usage() {
@@ -32,7 +69,20 @@ usage() {
     echo "  -r, --server-ssh-forward-port PORT   Remote port on server (default: $REMOTE_PORT)"
     echo "  -s, --install-local-service    Install as a startup service (requires root)"
     echo "  -U, --local-service-user USER  Local user under which the service will run (default: $LOCAL_USER)"
+    echo "  -c, --config FILE              Path to configuration file"
     echo "  --help              Display this help message"
+    echo ""
+    echo "Configuration file:"
+    echo "  The script searches for a configuration file in the following order:"
+    echo "  1. Current directory: ./ssh-tunnel.conf"
+    echo "  2. System-wide: /etc/ssh-tunnel.conf"
+    echo "  3. User config: ~/.config/ssh-tunnel/ssh-tunnel.conf"
+    echo ""
+    echo "  Command line options will override settings from the config file."
+    echo "  See ssh-tunnel.conf.example for an example configuration."
+    echo ""
+    echo "  When installing as a service, the current configuration is saved to /etc/ssh-tunnel.conf"
+    echo "  to ensure the service always uses the correct settings."
     echo ""
     echo "Example:"
     echo "  $0 --server-ssh-user admin --server-ssh-host myserver.com --server-ssh-forward-port 2222 --install-local-service"
@@ -43,7 +93,6 @@ usage() {
 }
 
 # Parse command line arguments
-INSTALL_SERVICE=false
 while [ $# -gt 0 ]; do
     case $1 in
         -u|--server-ssh-user)
@@ -74,6 +123,31 @@ while [ $# -gt 0 ]; do
             LOCAL_USER="$2"
             shift 2
             ;;
+        -c|--config)
+            CONFIG_FILE="$2"
+            # Re-load the config file with the new path
+            if [ -f "$CONFIG_FILE" ]; then
+                echo "Loading configuration from $CONFIG_FILE"
+                . "$CONFIG_FILE"
+                
+                # Map config file variables to script variables (only if not already set by command line)
+                [ -n "$SERVER_SSH_USER" ] && SERVER_USER="$SERVER_SSH_USER"
+                [ -n "$SERVER_SSH_HOST" ] && SERVER_HOST="$SERVER_SSH_HOST"
+                [ -n "$SERVER_SSH_PORT" ] && SERVER_PORT="$SERVER_SSH_PORT"
+                [ -n "$LOCAL_SSH_PORT" ] && LOCAL_PORT="$LOCAL_SSH_PORT"
+                [ -n "$SERVER_SSH_FORWARD_PORT" ] && REMOTE_PORT="$SERVER_SSH_FORWARD_PORT"
+                [ -n "$LOCAL_SERVICE_USER" ] && LOCAL_USER="$LOCAL_SERVICE_USER"
+                
+                # Convert string boolean to shell boolean
+                if [ "$INSTALL_LOCAL_SERVICE" = "true" ]; then
+                    INSTALL_SERVICE=true
+                fi
+            else
+                echo "Error: Configuration file $CONFIG_FILE not found."
+                exit 1
+            fi
+            shift 2
+            ;;
         --help)
             usage
             ;;
@@ -99,6 +173,36 @@ detect_init_system() {
     else
         echo "unknown"
     fi
+}
+
+# Function to save current configuration to system-wide location
+save_config_for_service() {
+    echo "Saving current configuration to /etc/ssh-tunnel.conf for service use"
+    cat > /etc/ssh-tunnel.conf << EOF
+# SSH Tunnel Configuration File
+# Created by ssh-tunnel.sh service installation on $(date)
+# This file is used by the ssh-tunnel service
+
+# Server SSH connection details
+SERVER_SSH_USER="$SERVER_USER"
+SERVER_SSH_HOST="$SERVER_HOST"
+SERVER_SSH_PORT="$SERVER_PORT"
+
+# Port forwarding configuration
+LOCAL_SSH_PORT="$LOCAL_PORT"
+SERVER_SSH_FORWARD_PORT="$REMOTE_PORT"
+
+# Service installation options
+INSTALL_LOCAL_SERVICE="true"
+LOCAL_SERVICE_USER="$LOCAL_USER"
+
+# Advanced options
+MONITOR_PORT="$MONITOR_PORT"
+SERVER_ALIVE_INTERVAL="$SERVER_ALIVE_INTERVAL"
+SERVER_ALIVE_COUNT_MAX="$SERVER_ALIVE_COUNT_MAX"
+EXIT_ON_FORWARD_FAILURE="$EXIT_ON_FORWARD_FAILURE"
+EOF
+    chmod 644 /etc/ssh-tunnel.conf
 }
 
 # Function to install as a service
@@ -127,11 +231,14 @@ install_service() {
         exit 1
     fi
 
+    # Save current configuration to system-wide location
+    save_config_for_service
+
     INIT_SYSTEM=$(detect_init_system)
     echo "Detected init system: $INIT_SYSTEM"
     
     # Create the command that will be run with short options
-    CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval 60\" -o \"ServerAliveCountMax 3\" -o \"ExitOnForwardFailure yes\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+    CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval $SERVER_ALIVE_INTERVAL\" -o \"ServerAliveCountMax $SERVER_ALIVE_COUNT_MAX\" -o \"ExitOnForwardFailure $EXIT_ON_FORWARD_FAILURE\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
     
     case $INIT_SYSTEM in
         bsd)
@@ -148,7 +255,7 @@ install_service() {
 name="reverse_ssh"
 rcvar="reverse_ssh_enable"
 command="/usr/bin/autossh"
-command_args="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+command_args="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=$SERVER_ALIVE_INTERVAL -o ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX -o ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 pidfile="/var/run/\${name}.pid"
 start_cmd="\${name}_start"
 stop_cmd="\${name}_stop"
@@ -194,7 +301,7 @@ EOF
 ### END INIT INFO
 
 DAEMON=/usr/bin/autossh
-DAEMON_ARGS="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+DAEMON_ARGS="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=$SERVER_ALIVE_INTERVAL -o ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX -o ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 NAME=reverse-ssh
 PIDFILE=/var/run/\$NAME.pid
 USER=$LOCAL_USER
@@ -253,8 +360,25 @@ EOF
             mkdir -p /usr/local/bin
             cat > /usr/local/bin/reverse_ssh_wrapper.sh << EOF
 #!/bin/sh
+# Load configuration
+if [ -f "/etc/ssh-tunnel.conf" ]; then
+    . /etc/ssh-tunnel.conf
+    
+    # Map config file variables to script variables
+    [ -n "\$SERVER_SSH_USER" ] && SERVER_USER="\$SERVER_SSH_USER"
+    [ -n "\$SERVER_SSH_HOST" ] && SERVER_HOST="\$SERVER_SSH_HOST"
+    [ -n "\$SERVER_SSH_PORT" ] && SERVER_PORT="\$SERVER_SSH_PORT"
+    [ -n "\$LOCAL_SSH_PORT" ] && LOCAL_PORT="\$LOCAL_SSH_PORT"
+    [ -n "\$SERVER_SSH_FORWARD_PORT" ] && REMOTE_PORT="\$SERVER_SSH_FORWARD_PORT"
+    [ -n "\$MONITOR_PORT" ] && MONITOR_PORT="\$MONITOR_PORT"
+    [ -n "\$SERVER_ALIVE_INTERVAL" ] && SERVER_ALIVE_INTERVAL="\$SERVER_ALIVE_INTERVAL"
+    [ -n "\$SERVER_ALIVE_COUNT_MAX" ] && SERVER_ALIVE_COUNT_MAX="\$SERVER_ALIVE_COUNT_MAX"
+    [ -n "\$EXIT_ON_FORWARD_FAILURE" ] && EXIT_ON_FORWARD_FAILURE="\$EXIT_ON_FORWARD_FAILURE"
+fi
+
 export AUTOSSH_GATETIME=0
-pgrep -f "autossh.*$REMOTE_PORT:localhost:$LOCAL_PORT" > /dev/null || $CMD
+CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval $SERVER_ALIVE_INTERVAL\" -o \"ServerAliveCountMax $SERVER_ALIVE_COUNT_MAX\" -o \"ExitOnForwardFailure $EXIT_ON_FORWARD_FAILURE\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+pgrep -f "autossh.*$REMOTE_PORT:localhost:$LOCAL_PORT" > /dev/null || \$CMD
 EOF
             chmod 755 /usr/local/bin/reverse_ssh_wrapper.sh
             
@@ -285,6 +409,8 @@ EOF
     esac
     
     echo "Service installed and started."
+    echo "Configuration saved to /etc/ssh-tunnel.conf"
+    echo "You can modify this file to change the service settings."
 }
 
 # Main execution
@@ -307,8 +433,8 @@ else
     
     # Establish the tunnel using regular SSH with short options
     ssh -N -R $REMOTE_PORT:localhost:$LOCAL_PORT \
-        -o ServerAliveInterval=60 \
-        -o ServerAliveCountMax=3 \
-        -o ExitOnForwardFailure=yes \
+        -o ServerAliveInterval=$SERVER_ALIVE_INTERVAL \
+        -o ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX \
+        -o ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE \
         -p $SERVER_PORT $SERVER_USER@$SERVER_HOST
 fi 

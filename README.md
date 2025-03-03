@@ -46,6 +46,70 @@ Here's how the process works:
 
 The `ssh-tunnel.sh` script establishes a reverse SSH tunnel from the client to the server. It works on various systems including those without systemd (BSD, older Linux, etc.).
 
+### Configuration
+
+The script can be configured in two ways:
+
+1. **Command Line Options**: Pass options directly when running the script
+2. **Configuration File**: Use a configuration file for persistent settings
+
+#### Configuration File
+
+The script searches for a configuration file in the following order:
+
+1. Current directory: `./ssh-tunnel.conf`
+2. System-wide: `/etc/ssh-tunnel.conf`
+3. User config: `~/.config/ssh-tunnel/ssh-tunnel.conf`
+
+You can also specify a custom configuration file path using the `-c` or `--config` option.
+
+Example configuration file:
+
+```
+# Server SSH connection details
+SERVER_SSH_USER="server_username"
+SERVER_SSH_HOST="server.example.com"
+SERVER_SSH_PORT="22"
+
+# Port forwarding configuration
+LOCAL_SSH_PORT="22"
+SERVER_SSH_FORWARD_PORT="2222"
+
+# Service installation options
+INSTALL_LOCAL_SERVICE="false"
+LOCAL_SERVICE_USER=""
+
+# Advanced options
+MONITOR_PORT="20000"
+SERVER_ALIVE_INTERVAL="60"
+SERVER_ALIVE_COUNT_MAX="3"
+EXIT_ON_FORWARD_FAILURE="yes"
+```
+
+Command line options will override settings from the configuration file.
+
+#### Service Configuration
+
+When installing as a service (using the `--install-local-service` option), the script automatically saves the current configuration to `/etc/ssh-tunnel.conf`. This ensures that:
+
+1. The service always uses the correct settings, even after system reboots
+2. You can modify the service configuration by editing this file
+3. Changes to the configuration are reflected when the service restarts
+
+After installation, you can update the service configuration by:
+
+```bash
+# Edit the service configuration
+sudo nano /etc/ssh-tunnel.conf
+
+# Restart the service to apply changes
+# For BSD systems:
+sudo /etc/rc.d/reverse_ssh restart
+
+# For SysV init systems:
+sudo /etc/init.d/reverse-ssh restart
+```
+
 ### Command Line Options
 
 The script supports the following command line options:
@@ -59,9 +123,12 @@ The script supports the following command line options:
 | `-r` | `--server-ssh-forward-port PORT` | Remote port on server that will forward to the client | 2222 |
 | `-s` | `--install-local-service` | Install as a startup service (requires root) | - |
 | `-U` | `--local-service-user USER` | Local user under which the service will run | Current user |
+| `-c` | `--config FILE` | Path to configuration file | - |
 | - | `--help` | Display help message | - |
 
 ### Usage
+
+#### Basic Usage
 
 On the client machine for a temporary connection:
 
@@ -71,13 +138,38 @@ On the client machine for a temporary connection:
 
 This creates a tunnel where port 2222 on the server forwards to port 22 (SSH) on the client. The script uses standard SSH for direct execution.
 
-Then, on the server:
+#### Using a Configuration File
 
 ```bash
-ssh -p 2222 localhost
+# Create and edit the configuration file
+cp ssh-tunnel.conf.example ssh-tunnel.conf
+nano ssh-tunnel.conf
+
+# Run with the default configuration file (auto-detected)
+./ssh-tunnel.sh
+
+# Or specify a different configuration file
+./ssh-tunnel.sh --config /path/to/my-config.conf
 ```
 
-This will connect you back to the client machine.
+For system-wide configuration:
+
+```bash
+# Create system-wide configuration
+sudo cp ssh-tunnel.conf.example /etc/ssh-tunnel.conf
+sudo nano /etc/ssh-tunnel.conf
+```
+
+For user-specific configuration:
+
+```bash
+# Create user configuration directory if it doesn't exist
+mkdir -p ~/.config/ssh-tunnel
+cp ssh-tunnel.conf.example ~/.config/ssh-tunnel/ssh-tunnel.conf
+nano ~/.config/ssh-tunnel/ssh-tunnel.conf
+```
+
+#### Installing as a Service
 
 For a permanent setup, you can install it as a service:
 
@@ -87,13 +179,42 @@ sudo ./ssh-tunnel.sh --server-ssh-user server_username --server-ssh-host server.
 doas ./ssh-tunnel.sh --server-ssh-user server_username --server-ssh-host server.example.com --server-ssh-forward-port 2222 --install-local-service
 ```
 
-When installing as a service, the script will automatically check for and install `autossh` if needed.
+When installing as a service, the script will:
+1. Automatically check for and install `autossh` if needed
+2. Save the current configuration to `/etc/ssh-tunnel.conf`
+3. Create and enable the appropriate service for your system
+4. Start the service immediately
+
+To modify the service configuration after installation:
+
+```bash
+# Edit the service configuration
+sudo nano /etc/ssh-tunnel.conf
+
+# Restart the service to apply changes
+sudo service reverse-ssh restart  # On most systems
+```
+
+#### Connecting from the Server
+
+Once the tunnel is established, on the server:
+
+```bash
+ssh -p 2222 localhost
+```
+
+This will connect you back to the client machine.
 
 ### Features
 
 - **Compatibility-focused design**:
   - Uses standard short options for SSH (`-N`, `-R`, `-p`, `-o`)
   - Works across macOS, Linux, and BSD systems
+- **Flexible configuration**:
+  - Command line options for quick setup
+  - Configuration file for persistent settings
+  - Multiple configuration file locations (local, system-wide, user-specific)
+  - Service configuration saved to system-wide location
 - **Efficient resource usage**:
   - Only installs `autossh` when needed for service installation
   - Uses regular SSH for direct execution
