@@ -55,8 +55,8 @@ usage() {
     echo "Example:"
     echo "  $0 --server-ssh-user admin --server-ssh-host myserver.com --server-ssh-forward-port 2222 --install-local-service"
     echo ""
-    echo "After running this script, the server can connect to this client using:"
-    echo "  ssh -p \$REMOTE_PORT localhost"
+    echo "After running this script, the server can connect back to this client using:"
+    echo "  ssh --port \$REMOTE_PORT localhost"
     exit 1
 }
 
@@ -131,7 +131,7 @@ install_service() {
     echo "Detected init system: $INIT_SYSTEM"
     
     # Create the command that will be run
-    CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval 60\" -o \"ServerAliveCountMax 3\" -o \"ExitOnForwardFailure yes\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+    CMD="/usr/bin/autossh -M $MONITOR_PORT -N --remote-forward=$REMOTE_PORT:localhost:$LOCAL_PORT --option \"ServerAliveInterval 60\" --option \"ServerAliveCountMax 3\" --option \"ExitOnForwardFailure yes\" --port $SERVER_PORT $SERVER_USER@$SERVER_HOST"
     
     case $INIT_SYSTEM in
         bsd)
@@ -148,7 +148,7 @@ install_service() {
 name="reverse_ssh"
 rcvar="reverse_ssh_enable"
 command="/usr/bin/autossh"
-command_args="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+command_args="-M $MONITOR_PORT -N --remote-forward=$REMOTE_PORT:localhost:$LOCAL_PORT --option ServerAliveInterval=60 --option ServerAliveCountMax=3 --option ExitOnForwardFailure=yes --port $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 pidfile="/var/run/\${name}.pid"
 start_cmd="\${name}_start"
 stop_cmd="\${name}_stop"
@@ -194,7 +194,7 @@ EOF
 ### END INIT INFO
 
 DAEMON=/usr/bin/autossh
-DAEMON_ARGS="-M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+DAEMON_ARGS="-M $MONITOR_PORT -N --remote-forward=$REMOTE_PORT:localhost:$LOCAL_PORT --option ServerAliveInterval=60 --option ServerAliveCountMax=3 --option ExitOnForwardFailure=yes --port $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 NAME=reverse-ssh
 PIDFILE=/var/run/\$NAME.pid
 USER=$LOCAL_USER
@@ -297,21 +297,18 @@ echo ""
 if [ "$INSTALL_SERVICE" = true ]; then
     install_service
 else
-    echo "Executing: autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
+    echo "Executing: ssh -N --remote-forward=$REMOTE_PORT:localhost:$LOCAL_PORT --port $SERVER_PORT $SERVER_USER@$SERVER_HOST"
     echo ""
     echo "This will allow the server to connect back to this client using:"
-    echo "  ssh -p $REMOTE_PORT localhost"
+    echo "  ssh --port $REMOTE_PORT localhost"
     echo ""
     echo "Press Ctrl+C to terminate the tunnel."
     echo ""
     
-    # Set autossh environment variables for better behavior
-    export AUTOSSH_GATETIME=0
-    
-    # Establish the persistent tunnel
-    autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT \
-        -o ServerAliveInterval=60 \
-        -o ServerAliveCountMax=3 \
-        -o ExitOnForwardFailure=yes \
-        -p $SERVER_PORT $SERVER_USER@$SERVER_HOST
+    # Establish the tunnel using regular SSH
+    ssh -N --remote-forward=$REMOTE_PORT:localhost:$LOCAL_PORT \
+        --option ServerAliveInterval=60 \
+        --option ServerAliveCountMax=3 \
+        --option ExitOnForwardFailure=yes \
+        --port $SERVER_PORT $SERVER_USER@$SERVER_HOST
 fi 
