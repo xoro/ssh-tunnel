@@ -268,6 +268,44 @@ If you get errors when installing as a service:
 
 This project has adopted the [Contributor Covenant](CODE_OF_CONDUCT.md) as its Code of Conduct. All contributors, users, and participants are expected to adhere to these guidelines to foster an open and welcoming community. Please read the [full text](CODE_OF_CONDUCT.md) to understand the expectations and how to report unacceptable behavior.
 
+## Code Quality and Security
+
+This project includes a `check_sources.sh` script that performs automated code quality and security checks. This script helps maintain high standards and ensures the codebase is free from common issues.
+
+### Check Sources Script
+
+The `check_sources.sh` script performs the following checks:
+
+1. **Security Scanning (gitleaks)**: Scans the repository for potential secrets, API keys, passwords, and other sensitive information that should not be committed to version control.
+
+2. **Shell Script Formatting (shfmt)**: Ensures all shell scripts follow a consistent formatting style with proper indentation and POSIX compliance.
+
+3. **Shell Script Static Analysis (shellcheck)**: Identifies potential bugs, stylistic issues, and unsafe practices in shell scripts.
+
+### Usage
+
+Run the script from the repository root:
+
+```bash
+./check_sources.sh
+```
+
+The script will exit with a non-zero status code if any issues are found:
+- Exit code 1: Potential credential leaks detected
+- Exit code 2: Shell script formatting issues found
+- Exit code 3: Shell script static analysis issues found
+
+### Requirements
+
+The script requires the following tools to be installed:
+- [gitleaks](https://github.com/zricethezav/gitleaks): For detecting credential leaks
+- [shfmt](https://github.com/mvdan/sh): For shell script formatting
+- [shellcheck](https://github.com/koalaman/shellcheck): For shell script static analysis
+
+### For Contributors
+
+Before submitting a pull request, please run the `check_sources.sh` script to ensure your changes meet the project's quality standards. Fix any issues reported by the script before submitting your contribution.
+
 ## Advanced Configuration
 
 For more advanced setups, consider:
