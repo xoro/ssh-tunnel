@@ -10,10 +10,10 @@
 SERVER_USER="server_username"
 SERVER_HOST="server.example.com"
 SERVER_PORT="22"
-LOCAL_PORT="22"          # SSH port on the client
-REMOTE_PORT="2222"       # Port on the server that will forward to the client
-MONITOR_PORT="20000"     # Port used by autossh to monitor the connection
-LOCAL_USER="$(whoami)"   # Local user under which the service will run
+LOCAL_PORT="22"        # SSH port on the client
+REMOTE_PORT="2222"     # Port on the server that will forward to the client
+MONITOR_PORT="20000"   # Port used by autossh to monitor the connection
+LOCAL_USER="$(whoami)" # Local user under which the service will run
 SERVER_ALIVE_INTERVAL="60"
 SERVER_ALIVE_COUNT_MAX="3"
 EXIT_ON_FORWARD_FAILURE="yes"
@@ -36,8 +36,9 @@ fi
 if [ -n "$CONFIG_FILE" ]; then
     echo "Loading configuration from $CONFIG_FILE"
     # Source the config file
+    # shellcheck disable=SC1090
     . "$CONFIG_FILE"
-    
+
     # Map config file variables to script variables
     [ -n "$SERVER_SSH_USER" ] && SERVER_USER="$SERVER_SSH_USER"
     [ -n "$SERVER_SSH_HOST" ] && SERVER_HOST="$SERVER_SSH_HOST"
@@ -45,7 +46,7 @@ if [ -n "$CONFIG_FILE" ]; then
     [ -n "$LOCAL_SSH_PORT" ] && LOCAL_PORT="$LOCAL_SSH_PORT"
     [ -n "$SERVER_SSH_FORWARD_PORT" ] && REMOTE_PORT="$SERVER_SSH_FORWARD_PORT"
     [ -n "$LOCAL_SERVICE_USER" ] && LOCAL_USER="$LOCAL_SERVICE_USER"
-    
+
     # Convert string boolean to shell boolean
     if [ "$INSTALL_LOCAL_SERVICE" = "true" ]; then
         INSTALL_SERVICE=true
@@ -95,66 +96,67 @@ usage() {
 # Parse command line arguments
 while [ $# -gt 0 ]; do
     case $1 in
-        -u|--server-ssh-user)
-            SERVER_USER="$2"
-            shift 2
-            ;;
-        -h|--server-ssh-host)
-            SERVER_HOST="$2"
-            shift 2
-            ;;
-        -p|--server-ssh-port)
-            SERVER_PORT="$2"
-            shift 2
-            ;;
-        -l|--local-ssh-port)
-            LOCAL_PORT="$2"
-            shift 2
-            ;;
-        -r|--server-ssh-forward-port)
-            REMOTE_PORT="$2"
-            shift 2
-            ;;
-        -s|--install-local-service)
-            INSTALL_SERVICE=true
-            shift
-            ;;
-        -U|--local-service-user)
-            LOCAL_USER="$2"
-            shift 2
-            ;;
-        -c|--config)
-            CONFIG_FILE="$2"
-            # Re-load the config file with the new path
-            if [ -f "$CONFIG_FILE" ]; then
-                echo "Loading configuration from $CONFIG_FILE"
-                . "$CONFIG_FILE"
-                
-                # Map config file variables to script variables (only if not already set by command line)
-                [ -n "$SERVER_SSH_USER" ] && SERVER_USER="$SERVER_SSH_USER"
-                [ -n "$SERVER_SSH_HOST" ] && SERVER_HOST="$SERVER_SSH_HOST"
-                [ -n "$SERVER_SSH_PORT" ] && SERVER_PORT="$SERVER_SSH_PORT"
-                [ -n "$LOCAL_SSH_PORT" ] && LOCAL_PORT="$LOCAL_SSH_PORT"
-                [ -n "$SERVER_SSH_FORWARD_PORT" ] && REMOTE_PORT="$SERVER_SSH_FORWARD_PORT"
-                [ -n "$LOCAL_SERVICE_USER" ] && LOCAL_USER="$LOCAL_SERVICE_USER"
-                
-                # Convert string boolean to shell boolean
-                if [ "$INSTALL_LOCAL_SERVICE" = "true" ]; then
-                    INSTALL_SERVICE=true
-                fi
-            else
-                echo "Error: Configuration file $CONFIG_FILE not found."
-                exit 1
+    -u | --server-ssh-user)
+        SERVER_USER="$2"
+        shift 2
+        ;;
+    -h | --server-ssh-host)
+        SERVER_HOST="$2"
+        shift 2
+        ;;
+    -p | --server-ssh-port)
+        SERVER_PORT="$2"
+        shift 2
+        ;;
+    -l | --local-ssh-port)
+        LOCAL_PORT="$2"
+        shift 2
+        ;;
+    -r | --server-ssh-forward-port)
+        REMOTE_PORT="$2"
+        shift 2
+        ;;
+    -s | --install-local-service)
+        INSTALL_SERVICE=true
+        shift
+        ;;
+    -U | --local-service-user)
+        LOCAL_USER="$2"
+        shift 2
+        ;;
+    -c | --config)
+        CONFIG_FILE="$2"
+        # Re-load the config file with the new path
+        if [ -f "$CONFIG_FILE" ]; then
+            echo "Loading configuration from $CONFIG_FILE"
+            # shellcheck disable=SC1090
+            . "$CONFIG_FILE"
+
+            # Map config file variables to script variables (only if not already set by command line)
+            [ -n "$SERVER_SSH_USER" ] && SERVER_USER="$SERVER_SSH_USER"
+            [ -n "$SERVER_SSH_HOST" ] && SERVER_HOST="$SERVER_SSH_HOST"
+            [ -n "$SERVER_SSH_PORT" ] && SERVER_PORT="$SERVER_SSH_PORT"
+            [ -n "$LOCAL_SSH_PORT" ] && LOCAL_PORT="$LOCAL_SSH_PORT"
+            [ -n "$SERVER_SSH_FORWARD_PORT" ] && REMOTE_PORT="$SERVER_SSH_FORWARD_PORT"
+            [ -n "$LOCAL_SERVICE_USER" ] && LOCAL_USER="$LOCAL_SERVICE_USER"
+
+            # Convert string boolean to shell boolean
+            if [ "$INSTALL_LOCAL_SERVICE" = "true" ]; then
+                INSTALL_SERVICE=true
             fi
-            shift 2
-            ;;
-        --help)
-            usage
-            ;;
-        *)
-            echo "Unknown option: $1"
-            usage
-            ;;
+        else
+            echo "Error: Configuration file $CONFIG_FILE not found."
+            exit 1
+        fi
+        shift 2
+        ;;
+    --help)
+        usage
+        ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        ;;
     esac
 done
 
@@ -178,7 +180,7 @@ detect_init_system() {
 # Function to save current configuration to system-wide location
 save_config_for_service() {
     echo "Saving current configuration to /etc/ssh-tunnel.conf for service use"
-    cat > /etc/ssh-tunnel.conf << EOF
+    cat >/etc/ssh-tunnel.conf <<EOF
 # SSH Tunnel Configuration File
 # Created by ssh-tunnel.sh service installation on $(date)
 # This file is used by the ssh-tunnel service
@@ -208,16 +210,16 @@ EOF
 # Function to install as a service
 install_service() {
     # Check if autossh is installed
-    if ! command -v autossh > /dev/null 2>&1; then
+    if ! command -v autossh >/dev/null 2>&1; then
         echo "autossh is not installed. Installing..."
-        if command -v apt-get > /dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y autossh
-        elif command -v yum > /dev/null 2>&1; then
+        elif command -v yum >/dev/null 2>&1; then
             sudo yum install -y autossh
-        elif command -v pkg > /dev/null 2>&1; then
+        elif command -v pkg >/dev/null 2>&1; then
             sudo pkg install autossh
-        elif command -v brew > /dev/null 2>&1; then
+        elif command -v brew >/dev/null 2>&1; then
             brew install autossh
         else
             echo "Error: Could not install autossh. Please install it manually."
@@ -236,14 +238,15 @@ install_service() {
 
     INIT_SYSTEM=$(detect_init_system)
     echo "Detected init system: $INIT_SYSTEM"
-    
+
     # Create the command that will be run with short options
+    # shellcheck disable=SC2034
     CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval $SERVER_ALIVE_INTERVAL\" -o \"ServerAliveCountMax $SERVER_ALIVE_COUNT_MAX\" -o \"ExitOnForwardFailure $EXIT_ON_FORWARD_FAILURE\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
-    
+
     case $INIT_SYSTEM in
-        bsd)
-            # Create rc script for BSD systems
-            cat > /etc/rc.d/ssh-tunnel << EOF
+    bsd)
+        # Create rc script for BSD systems
+        cat >/etc/rc.d/ssh-tunnel <<EOF
 #!/bin/sh
 #
 # PROVIDE: ssh-tunnel
@@ -277,18 +280,18 @@ ssh_tunnel_stop()
 load_rc_config \$name
 run_rc_command "\$1"
 EOF
-            chmod 755 /etc/rc.d/ssh-tunnel
-            
-            # Enable the service
-            echo 'ssh_tunnel_enable="YES"' >> /etc/rc.conf
-            
-            echo "Service installed. It will start on next boot."
-            echo "To start it now, run: /etc/rc.d/ssh-tunnel start"
-            ;;
-            
-        sysv)
-            # Create init script for SysV init systems
-            cat > /etc/init.d/ssh-tunnel << EOF
+        chmod 755 /etc/rc.d/ssh-tunnel
+
+        # Enable the service
+        echo 'ssh_tunnel_enable="YES"' >>/etc/rc.conf
+
+        echo "Service installed. It will start on next boot."
+        echo "To start it now, run: /etc/rc.d/ssh-tunnel start"
+        ;;
+
+    sysv)
+        # Create init script for SysV init systems
+        cat >/etc/init.d/ssh-tunnel <<EOF
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          ssh-tunnel
@@ -338,27 +341,27 @@ esac
 
 exit 0
 EOF
-            chmod 755 /etc/init.d/ssh-tunnel
-            
-            # Enable the service
-            if command -v update-rc.d > /dev/null 2>&1; then
-                update-rc.d ssh-tunnel defaults
-            elif command -v chkconfig > /dev/null 2>&1; then
-                chkconfig --add ssh-tunnel
-                chkconfig ssh-tunnel on
-            fi
-            
-            echo "Service installed. It will start on next boot."
-            echo "To start it now, run: /etc/init.d/ssh-tunnel start"
-            ;;
-            
-        *)
-            # For unknown init systems, create a crontab entry
-            echo "Unknown init system. Setting up a crontab entry instead."
-            
-            # Create a wrapper script
-            mkdir -p /usr/local/bin
-            cat > /usr/local/bin/ssh_tunnel_wrapper.sh << EOF
+        chmod 755 /etc/init.d/ssh-tunnel
+
+        # Enable the service
+        if command -v update-rc.d >/dev/null 2>&1; then
+            update-rc.d ssh-tunnel defaults
+        elif command -v chkconfig >/dev/null 2>&1; then
+            chkconfig --add ssh-tunnel
+            chkconfig ssh-tunnel on
+        fi
+
+        echo "Service installed. It will start on next boot."
+        echo "To start it now, run: /etc/init.d/ssh-tunnel start"
+        ;;
+
+    *)
+        # For unknown init systems, create a crontab entry
+        echo "Unknown init system. Setting up a crontab entry instead."
+
+        # Create a wrapper script
+        mkdir -p /usr/local/bin
+        cat >/usr/local/bin/ssh_tunnel_wrapper.sh <<EOF
 #!/bin/sh
 # Load configuration
 if [ -f "/etc/ssh-tunnel.conf" ]; then
@@ -380,34 +383,37 @@ export AUTOSSH_GATETIME=0
 CMD="/usr/bin/autossh -M $MONITOR_PORT -N -R $REMOTE_PORT:localhost:$LOCAL_PORT -o \"ServerAliveInterval $SERVER_ALIVE_INTERVAL\" -o \"ServerAliveCountMax $SERVER_ALIVE_COUNT_MAX\" -o \"ExitOnForwardFailure $EXIT_ON_FORWARD_FAILURE\" -p $SERVER_PORT $SERVER_USER@$SERVER_HOST"
 pgrep -f "autossh.*$REMOTE_PORT:localhost:$LOCAL_PORT" > /dev/null || \$CMD
 EOF
-            chmod 755 /usr/local/bin/ssh_tunnel_wrapper.sh
-            
-            # Add to crontab to run every 5 minutes, but for the specific user
-            if [ -f /usr/bin/crontab ]; then
-                (su - $LOCAL_USER -c "crontab -l 2>/dev/null"; echo "*/5 * * * * /usr/local/bin/ssh_tunnel_wrapper.sh") | su - $LOCAL_USER -c "crontab -"
-                echo "Crontab entry added for user '$LOCAL_USER'. The script will check every 5 minutes if the tunnel is running."
-            else
-                echo "Warning: Could not add crontab entry. Please add it manually for user '$LOCAL_USER':"
+        chmod 755 /usr/local/bin/ssh_tunnel_wrapper.sh
+
+        # Add to crontab to run every 5 minutes, but for the specific user
+        if [ -f /usr/bin/crontab ]; then
+            (
+                su - "$LOCAL_USER" -c "crontab -l 2>/dev/null"
                 echo "*/5 * * * * /usr/local/bin/ssh_tunnel_wrapper.sh"
-            fi
-            
-            echo "To start it now, run as user '$LOCAL_USER': /usr/local/bin/ssh_tunnel_wrapper.sh"
-            ;;
+            ) | su - "$LOCAL_USER" -c "crontab -"
+            echo "Crontab entry added for user '$LOCAL_USER'. The script will check every 5 minutes if the tunnel is running."
+        else
+            echo "Warning: Could not add crontab entry. Please add it manually for user '$LOCAL_USER':"
+            echo "*/5 * * * * /usr/local/bin/ssh_tunnel_wrapper.sh"
+        fi
+
+        echo "To start it now, run as user '$LOCAL_USER': /usr/local/bin/ssh_tunnel_wrapper.sh"
+        ;;
     esac
-    
+
     # Start the service immediately
     case $INIT_SYSTEM in
-        bsd)
-            /etc/rc.d/ssh-tunnel start
-            ;;
-        sysv)
-            /etc/init.d/ssh-tunnel start
-            ;;
-        *)
-            su - $LOCAL_USER -c "/usr/local/bin/ssh_tunnel_wrapper.sh"
-            ;;
+    bsd)
+        /etc/rc.d/ssh-tunnel start
+        ;;
+    sysv)
+        /etc/init.d/ssh-tunnel start
+        ;;
+    *)
+        su - "$LOCAL_USER" -c "/usr/local/bin/ssh_tunnel_wrapper.sh"
+        ;;
     esac
-    
+
     echo "Service installed and started."
     echo "Configuration saved to /etc/ssh-tunnel.conf"
     echo "You can modify this file to change the service settings."
@@ -430,11 +436,11 @@ else
     echo ""
     echo "Press Ctrl+C to terminate the tunnel."
     echo ""
-    
+
     # Establish the tunnel using regular SSH with short options
-    ssh -N -R $REMOTE_PORT:localhost:$LOCAL_PORT \
-        -o ServerAliveInterval=$SERVER_ALIVE_INTERVAL \
-        -o ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX \
-        -o ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE \
-        -p $SERVER_PORT $SERVER_USER@$SERVER_HOST
-fi 
+    ssh -N -R "$REMOTE_PORT":localhost:"$LOCAL_PORT" \
+        -o "ServerAliveInterval=$SERVER_ALIVE_INTERVAL" \
+        -o "ServerAliveCountMax=$SERVER_ALIVE_COUNT_MAX" \
+        -o "ExitOnForwardFailure=$EXIT_ON_FORWARD_FAILURE" \
+        -p "$SERVER_PORT" "$SERVER_USER"@"$SERVER_HOST"
+fi
