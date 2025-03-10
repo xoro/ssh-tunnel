@@ -264,6 +264,10 @@ If you get errors when installing as a service:
 1. For permission errors: Make sure you're using sudo or doas
 2. For other errors: Check the script output for specific error messages
 
+## Code of Conduct
+
+This project has adopted the [Contributor Covenant](CODE_OF_CONDUCT.md) as its Code of Conduct. All contributors, users, and participants are expected to adhere to these guidelines to foster an open and welcoming community. Please read the [full text](CODE_OF_CONDUCT.md) to understand the expectations and how to report unacceptable behavior.
+
 ## Advanced Configuration
 
 For more advanced setups, consider:
